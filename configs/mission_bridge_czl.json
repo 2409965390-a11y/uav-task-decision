@@ -1,0 +1,15 @@
+{
+  "map_size": [67, 67],
+  "start": [6, 6],
+  "goal": [61, 61],
+  "speed": 1.0,
+  "safety_distance": 1.0,
+  "obstacles": [
+    {
+      "xmin": 8,
+      "xmax": 12,
+      "ymin": 7,
+      "ymax": 13
+    }
+  ]
+}
