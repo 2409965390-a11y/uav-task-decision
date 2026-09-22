@@ -361,7 +361,7 @@ reports/week02_report_czl.md
 
 Git 仓库地址：
 
-待填写
+https://github.com/2409965390-a11y/uav-task-decision
 
 本周提交号：
 
