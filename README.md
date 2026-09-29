@@ -532,3 +532,21 @@ python src/state_estimator.py
 当前可靠性评分在仿真实验中使用了 Ground Truth 计算观测误差，因此主要用于验证基础流程，无法直接作为真实无人机系统中的最终可靠性算法。
 
 后续需要研究不依赖 Ground Truth 的状态可靠性判断方法。
+## 13. Git 信息 
+
+Git 仓库地址[https://github.com/2409965390-a11y/uav-task-decision](https://github.com/2409965390-a11y/uav-task-decision)
+
+本周提交号： 9899adc
+
+运行命令：
+python src/observation_simulator.py
+python src/state_estimator.py
+
+主要输出文件：
+data/simulated_observations/week03_noisy_czl.csv
+data/simulated_observations/week03_estimated_czl.csv
+data/simulated_observations/week03_reliability_czl.csv
+figures/week03_observation_and_estimate_czl.png
+figures/week03_reliability_score_czl.png
+
+已知问题： 当前状态估计仅使用简单指数平滑，观测缺失时仅保持上一时刻估计；当前可靠性评分仍依赖仿真 Ground Truth，尚不能直接用于真实无人机系统。
