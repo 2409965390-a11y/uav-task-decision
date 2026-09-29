@@ -159,7 +159,7 @@ src/simulator_2d.py
 - 获取无人机起点、终点和速度；
 - 计算起点到终点之间的直线距离；
 - 将总速度分解为 X 和 Y 方向速度；
-- 按固定时间步计算无人机当前位置；
+- 按固定时间计算无人机当前位置；
 - 计算任务完成进度；
 - 生成真实轨迹数据；
 - 保存 CSV 文件；
@@ -309,7 +309,7 @@ task_progress = 1.0
 
 目前只实现了从起点到终点的二维直线运动。
 
-虽然任务配置中已经包含障碍物，并且程序能够在地图上绘制障碍物，但还没有实现真正的避障功能。
+虽然任务配置中已经包含障碍物，并且程序能够在地图上绘制障碍物，但还没有实现真正地避障功能。
 
 因此，目前生成的直线路径可能直接经过障碍物。
 
@@ -380,3 +380,155 @@ figures/week02_ground_truth_czl.png
 已知问题：
 
 当前只支持二维直线路径，尚未实现避障和路径规划。
+
+---
+
+## 第3周：模拟传感器误差与状态可靠性
+
+### 本周新增功能
+
+第3周在第2周真实轨迹基础上加入模拟传感器观测，并进行基础状态估计和可靠性分析。
+
+当前新增功能包括：
+
+- 给真实位置加入高斯随机噪声；
+- 随机制造观测缺失；
+- 制造连续异常观测；
+- 使用指数平滑进行状态估计；
+- 计算观测误差和估计误差；
+- 计算观测 RMSE 和估计 RMSE；
+- 生成可靠性分数；
+- 标记低可靠时间点；
+- 对不同噪声强度和缺失率进行对照实验。
+
+### 新增配置文件
+
+configs/observation_noise.yaml
+
+基准参数：
+
+position_noise_std = 0.5
+
+missing_rate = 0.1
+
+outlier_start = 50
+
+outlier_length = 10
+
+random_seed = 42
+
+### 新增程序
+
+src/observation_simulator.py
+
+用于根据第2周 Ground Truth 生成带随机噪声、缺失和连续异常的模拟传感器观测。
+
+src/state_estimator.py
+
+用于进行指数平滑状态估计、RMSE 计算和可靠性评分。
+
+当前指数平滑参数：
+
+alpha = 0.8
+
+### 第3周输出文件
+
+带噪观测：
+
+data/simulated_observations/week03_noisy_czl.csv
+
+状态估计：
+
+data/simulated_observations/week03_estimated_czl.csv
+
+可靠性结果：
+
+data/simulated_observations/week03_reliability_czl.csv
+
+状态估计对比图：
+
+figures/week03_observation_and_estimate_czl.png
+
+可靠性评分图：
+
+figures/week03_reliability_score_czl.png
+
+第3周报告：
+
+reports/week03_report_czl.md
+
+### 基准实验结果
+
+position_noise_std = 0.5
+
+missing_rate = 0.10
+
+alpha = 0.8
+
+观测 RMSE ≈ 1.4624
+
+估计 RMSE ≈ 1.4159
+
+低可靠观测数量 = 17
+
+在当前实验条件下，指数平滑后的估计 RMSE 略低于原始观测 RMSE。
+
+### 参数对照实验
+
+实验A：基准组
+
+noise_std = 0.5
+
+missing_rate = 0.10
+
+观测 RMSE = 1.4624
+
+估计 RMSE = 1.4159
+
+低可靠数量 = 17
+
+实验B：高噪声组
+
+noise_std = 1.0
+
+missing_rate = 0.10
+
+观测 RMSE = 2.9249
+
+估计 RMSE = 2.7245
+
+低可靠数量 = 28
+
+实验C：高缺失率组
+
+noise_std = 0.5
+
+missing_rate = 0.25
+
+观测 RMSE = 1.3707
+
+估计 RMSE = 1.7186
+
+低可靠数量 = 31
+
+实验表明，增大位置噪声会明显增加观测和估计误差；提高缺失率会增加低可靠状态数量，并降低状态估计效果。
+
+### 第3周运行方法
+
+首先生成模拟传感器观测：
+
+python src/observation_simulator.py
+
+然后进行状态估计和可靠性分析：
+
+python src/state_estimator.py
+
+### 当前已知问题
+
+当前状态估计只使用简单指数平滑。
+
+观测缺失时仅保持上一时刻估计，没有使用无人机运动模型进行预测。
+
+当前可靠性评分在仿真实验中使用了 Ground Truth 计算观测误差，因此主要用于验证基础流程，无法直接作为真实无人机系统中的最终可靠性算法。
+
+后续需要研究不依赖 Ground Truth 的状态可靠性判断方法。

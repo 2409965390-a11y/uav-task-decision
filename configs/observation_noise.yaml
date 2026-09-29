@@ -1,0 +1,5 @@
+position_noise_std: 0.5
+missing_rate: 0.1
+outlier_start: 50
+outlier_length: 10
+random_seed: 42
