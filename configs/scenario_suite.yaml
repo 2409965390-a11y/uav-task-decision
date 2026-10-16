@@ -1,0 +1,22 @@
+version: scenario_demo_v1
+date: '2026-10-15'
+runs: 20
+seed_start: 100
+example_seed: 100
+scenes:
+  - id: basic_single
+    title: 单障碍基础图
+    path: configs/scenarios/basic_single.json
+    expected_plannable: true
+  - id: staggered_four
+    title: 四障碍交错绕行
+    path: configs/scenarios/staggered_four.json
+    expected_plannable: true
+  - id: narrow_four
+    title: 四障碍窄通道
+    path: configs/scenarios/narrow_four.json
+    expected_plannable: true
+  - id: narrow_blocked
+    title: 同一通道安全距离过大
+    path: configs/scenarios/narrow_blocked.json
+    expected_plannable: false

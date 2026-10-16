@@ -1,0 +1,5 @@
+﻿run_id,strategy,task_completed,collision_count,path_length,execution_time,hold_count,hold_time,observe_count,replan_count,returned_to_start,safety_violation_steps,failure_reason,runtime_seconds,scenario,seed
+0,A,False,1,7.0,7.0,0,0.0,0,0,False,2,collision,0.00147720001405105,transient_bias,900
+0,B,True,0,110.0,114.0,1,4.0,0,0,False,0,,0.002737100003287196,transient_bias,900
+1,A,False,1,7.0,7.0,0,0.0,0,0,False,2,collision,0.0022701999987475574,persistent_bias,901
+1,B,False,0,10.0,20.0,1,10.0,0,0,True,0,safe_return,0.0011565000168047845,persistent_bias,901

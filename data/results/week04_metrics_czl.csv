@@ -1,0 +1,3 @@
+﻿strategy,run_count,success_rate,collision_count,path_length,execution_time,hold_time,hold_count,replan_count,runtime_seconds,return_count
+A,20,0.0,0,112.905530724198,114.7,0.0,0.0,0.0,0.0047835999983362855,0
+B,20,0.2,0,84.61296266807355,145.9,42.45,23.65,0.0,0.0047715050022816285,3

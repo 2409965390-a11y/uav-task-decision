@@ -1,552 +1,129 @@
-# UAV Task Decision
+# 无人机任务仿真：第2—4周基础训练与多地图扩展
 
-## 1. 项目说明
+版本：week04-2026-10-16-v1，整理日期：2026-10-16。
+基础算法沿用baseline_v1个人候选，新增多地图展示与详细中文注释。
+本包整理本人的第2—4周流程。未整合另外两位同学的项目，也未声称完成全组三台电脑复现或教师审核。
 
-本项目用于完成无人机自主任务方向第2周基础训练。
+## 环境与安装
 
-当前阶段主要实现“任务配置 → 二维模拟 → 数据保存 → 结果绘制”的基础流程。
+导师建议Python 3.11；本机实际验证为Python 3.12.10，Python 3.11尚未实测。项目不依赖某台电脑的绝对路径。
 
-程序能够从 JSON 文件读取任务配置，根据起点、终点和速度生成二维直线轨迹，并保存真实轨迹数据和轨迹图。
-
----
-
-## 2. 当前功能
-
-当前程序可以完成以下功能：
-
-1. 从 JSON 文件读取无人机任务配置；
-2. 获取地图大小、起点、终点、速度、安全距离和障碍物信息；
-3. 检查任务配置中的必要字段是否存在；
-4. 根据起点和终点生成二维直线路径；
-5. 按固定速度模拟无人机运动；
-6. 记录每个时间步的位置、速度和任务进度；
-7. 将真实轨迹保存为 CSV 文件；
-8. 绘制地图、障碍物、起点、终点和真实轨迹；
-9. 修改 JSON 中的起点或终点后，不修改 Python 程序即可生成新的轨迹。
-
----
-
-## 3. 项目目录
-
-uav-task-decision/
-
-├── configs/
-
-│   └── mission_bridge_czl.json
-
-├── data/
-
-│   └── simulated_observations/
-
-│       └── week02_ground_truth_czl.csv
-
-├── figures/
-
-│   └── week02_ground_truth_czl.png
-
-├── reports/
-
-│   └── week02_report_czl.md
-
-├── src/
-
-│   ├── mission_io.py
-
-│   └── simulator_2d.py
-
-├── tests/
-
-├── requirements.txt
-
-└── README.md
-
----
-
-## 4. 环境说明
-
-本项目当前使用 Python 虚拟环境运行。
-
-主要第三方依赖包括：
-
-- pandas
-- matplotlib
-
-安装依赖前，请先进入项目根目录。
-
-安装命令：
-
+```powershell
 python -m pip install -r requirements.txt
+```
 
----
+依赖为NumPy、Pandas、Matplotlib和PyYAML。测试采用标准库unittest；也能被pytest发现。
+`requirements.txt`给出依赖版本范围，安装器根据Python版本选择兼容版本。
+本机精确依赖另存`requirements.lock.txt`，该锁定组合要求Python 3.12或以上；使用同一Python 3.12.10环境复现时可以运行`python -m pip install -r requirements.lock.txt`。
+Python版本需与全组及老师对齐，不能把本机测试说成已完成Python 3.11验证。
+Matplotlib图中中文字体优先Microsoft YaHei或SimHei；没有中文字体时需安装字体，计算与CSV不受影响。
 
-## 5. 任务配置文件
+## 一次运行全部流程
 
-任务配置文件位置：
+在本项目根目录运行：
 
-configs/mission_bridge_czl.json
+```powershell
+python src/run_pipeline.py --stage all
+python -m unittest discover -s tests -v
+```
 
-当前任务配置主要包含以下字段：
+默认只保存图片，不弹出窗口。`--show`可显示第2、3周交互图。
+也可以单独运行`--stage week02`、`--stage week03`、`--stage week04`。
+单独运行第3周需要先有当前任务的第2周Ground Truth。
 
-- map_size：地图大小
-- start：无人机起点
-- goal：无人机终点
-- speed：飞行速度
-- safety_distance：安全距离
-- obstacles：障碍物信息
+旧运行方式保留：
 
-示例：
-
-{
-  "map_size": [67, 67],
-  "start": [6, 6],
-  "goal": [50, 20],
-  "speed": 1.0,
-  "safety_distance": 1.0,
-  "obstacles": [
-    {
-      "xmin": 8,
-      "xmax": 12,
-      "ymin": 7,
-      "ymax": 13
-    }
-  ]
-}
-
-程序不会把这些任务参数写死在 Python 代码中。
-
-如果需要修改任务，可以直接修改 JSON 文件中的参数，然后重新运行仿真程序。
-
----
-
-## 6. 程序说明
-
-### 6.1 mission_io.py
-
-文件位置：
-
-src/mission_io.py
-
-主要功能：
-
-- 获取项目根目录；
-- 找到任务 JSON 文件；
-- 使用 json.load() 读取任务配置；
-- 检查任务配置中的必要字段；
-- 将任务配置返回给后续程序使用。
-
-需要检查的字段包括：
-
-- map_size
-- start
-- goal
-- speed
-- safety_distance
-- obstacles
-
-如果缺少必要字段，程序会给出错误提示。
-
----
-
-### 6.2 simulator_2d.py
-
-文件位置：
-
-src/simulator_2d.py
-
-主要功能：
-
-- 调用 mission_io.py 读取任务；
-- 获取无人机起点、终点和速度；
-- 计算起点到终点之间的直线距离；
-- 将总速度分解为 X 和 Y 方向速度；
-- 按固定时间计算无人机当前位置；
-- 计算任务完成进度；
-- 生成真实轨迹数据；
-- 保存 CSV 文件；
-- 绘制并保存轨迹图。
-
-真实轨迹数据至少包含以下字段：
-
-- time
-- x
-- y
-- vx
-- vy
-- target_id
-- task_progress
-
----
-
-## 7. 运行方法
-
-在项目根目录打开 PyCharm Terminal 或 PowerShell。
-
-运行二维仿真程序：
-
+```powershell
 python src/simulator_2d.py
-
-运行完成后，程序会输出：
-
-- 轨迹点数量；
-- CSV 保存位置；
-- 图片保存位置；
-- 前5行轨迹数据；
-- 最后5行轨迹数据。
-
-如果程序正常运行，最后会显示退出代码为 0。
-
----
-
-## 8. 输出文件
-
-### 8.1 真实轨迹 CSV
-
-文件位置：
-
-data/simulated_observations/week02_ground_truth_czl.csv
-
-CSV 中包含：
-
-time,x,y,vx,vy,target_id,task_progress
-
-其中：
-
-- time：当前仿真时间；
-- x：无人机当前 X 坐标；
-- y：无人机当前 Y 坐标；
-- vx：X 方向速度；
-- vy：Y 方向速度；
-- target_id：当前目标编号；
-- task_progress：任务完成比例。
-
-task_progress 的范围为 0 到 1。
-
-0 表示任务刚开始。
-
-1 表示已经到达目标点。
-
----
-
-### 8.2 真实轨迹图
-
-文件位置：
-
-figures/week02_ground_truth_czl.png
-
-图中包含：
-
-- X、Y 坐标轴；
-- Start：无人机起点；
-- Goal：无人机终点；
-- Ground Truth：模拟器生成的真实轨迹；
-- Obstacle：任务配置中的障碍物；
-- 图例；
-- 网格。
-
----
-
-## 9. 参数修改测试
-
-为了验证任务配置和程序代码是否已经分离，进行了终点修改测试。
-
-原终点：
-
-[61, 61]
-
-修改为：
-
-[50, 20]
-
-修改过程中没有更改 mission_io.py 和 simulator_2d.py。
-
-重新运行 simulator_2d.py 后，程序自动生成了新的轨迹。
-
-最终轨迹到达：
-
-x = 50
-
-y = 20
-
-task_progress = 1.0
-
-说明程序能够根据 JSON 配置自动生成新的任务轨迹。
-
----
-
-## 10. CSV 读取验证
-
-生成 CSV 后，使用 Pandas 进行了重新读取测试。
-
-验证命令：
-
-python -c "import pandas as pd; df=pd.read_csv('data/simulated_observations/week02_ground_truth_czl.csv'); print(df.head()); print(df.tail())"
-
-CSV 可以正常读取。
-
-读取结果中第一行对应起点：
-
-x = 6
-
-y = 6
-
-task_progress = 0
-
-最后一行对应终点：
-
-x = 50
-
-y = 20
-
-task_progress = 1.0
-
-说明生成的数据文件可以正常保存和重新使用。
-
----
-
-## 11. 当前已知问题
-
-当前程序仍然是基础版本。
-
-目前只实现了从起点到终点的二维直线运动。
-
-虽然任务配置中已经包含障碍物，并且程序能够在地图上绘制障碍物，但还没有实现真正地避障功能。
-
-因此，目前生成的直线路径可能直接经过障碍物。
-
-当前尚未实现：
-
-- 障碍物碰撞检测；
-- 自动绕障；
-- A* 等路径规划算法；
-- 传感器噪声模拟；
-- 数据缺失；
-- 异常观测；
-- 状态估计；
-- 可靠性分析；
-- 根据可靠性进行减速、悬停或重新规划。
-
-这些功能将在后续训练阶段继续实现。
-
----
-
-## 12. 本周主要输出
-
-任务配置文件：
-
-configs/mission_bridge_czl.json
-
-任务读取程序：
-
-src/mission_io.py
-
-二维仿真程序：
-
-src/simulator_2d.py
-
-真实轨迹数据：
-
-data/simulated_observations/week02_ground_truth_czl.csv
-
-真实轨迹图：
-
-figures/week02_ground_truth_czl.png
-
-第2周报告：
-
-reports/week02_report_czl.md
-
----
-
-## 13. Git 信息
-
-Git 仓库地址：
-
-https://github.com/2409965390-a11y/uav-task-decision
-
-本周提交号：
-
-1ff6a84
-
-运行命令：
-
-python src/simulator_2d.py
-
-主要输出文件：
-
-data/simulated_observations/week02_ground_truth_czl.csv
-
-figures/week02_ground_truth_czl.png
-
-已知问题：
-
-当前只支持二维直线路径，尚未实现避障和路径规划。
-
----
-
-## 第3周：模拟传感器误差与状态可靠性
-
-### 本周新增功能
-
-第3周在第2周真实轨迹基础上加入模拟传感器观测，并进行基础状态估计和可靠性分析。
-
-当前新增功能包括：
-
-- 给真实位置加入高斯随机噪声；
-- 随机制造观测缺失；
-- 制造连续异常观测；
-- 使用指数平滑进行状态估计；
-- 计算观测误差和估计误差；
-- 计算观测 RMSE 和估计 RMSE；
-- 生成可靠性分数；
-- 标记低可靠时间点；
-- 对不同噪声强度和缺失率进行对照实验。
-
-### 新增配置文件
-
-configs/observation_noise.yaml
-
-基准参数：
-
-position_noise_std = 0.5
-
-missing_rate = 0.1
-
-outlier_start = 50
-
-outlier_length = 10
-
-random_seed = 42
-
-### 新增程序
-
-src/observation_simulator.py
-
-用于根据第2周 Ground Truth 生成带随机噪声、缺失和连续异常的模拟传感器观测。
-
-src/state_estimator.py
-
-用于进行指数平滑状态估计、RMSE 计算和可靠性评分。
-
-当前指数平滑参数：
-
-alpha = 0.8
-
-### 第3周输出文件
-
-带噪观测：
-
-data/simulated_observations/week03_noisy_czl.csv
-
-状态估计：
-
-data/simulated_observations/week03_estimated_czl.csv
-
-可靠性结果：
-
-data/simulated_observations/week03_reliability_czl.csv
-
-状态估计对比图：
-
-figures/week03_observation_and_estimate_czl.png
-
-可靠性评分图：
-
-figures/week03_reliability_score_czl.png
-
-第3周报告：
-
-reports/week03_report_czl.md
-
-### 基准实验结果
-
-position_noise_std = 0.5
-
-missing_rate = 0.10
-
-alpha = 0.8
-
-观测 RMSE ≈ 1.4624
-
-估计 RMSE ≈ 1.4159
-
-低可靠观测数量 = 17
-
-在当前实验条件下，指数平滑后的估计 RMSE 略低于原始观测 RMSE。
-
-### 参数对照实验
-
-实验A：基准组
-
-noise_std = 0.5
-
-missing_rate = 0.10
-
-观测 RMSE = 1.4624
-
-估计 RMSE = 1.4159
-
-低可靠数量 = 17
-
-实验B：高噪声组
-
-noise_std = 1.0
-
-missing_rate = 0.10
-
-观测 RMSE = 2.9249
-
-估计 RMSE = 2.7245
-
-低可靠数量 = 28
-
-实验C：高缺失率组
-
-noise_std = 0.5
-
-missing_rate = 0.25
-
-观测 RMSE = 1.3707
-
-估计 RMSE = 1.7186
-
-低可靠数量 = 31
-
-实验表明，增大位置噪声会明显增加观测和估计误差；提高缺失率会增加低可靠状态数量，并降低状态估计效果。
-
-### 第3周运行方法
-
-首先生成模拟传感器观测：
-
-python src/observation_simulator.py
-
-然后进行状态估计和可靠性分析：
-
-python src/state_estimator.py
-
-### 当前已知问题
-
-当前状态估计只使用简单指数平滑。
-
-观测缺失时仅保持上一时刻估计，没有使用无人机运动模型进行预测。
-
-当前可靠性评分在仿真实验中使用了 Ground Truth 计算观测误差，因此主要用于验证基础流程，无法直接作为真实无人机系统中的最终可靠性算法。
-
-后续需要研究不依赖 Ground Truth 的状态可靠性判断方法。
-## 13. Git 信息 
-
-Git 仓库地址[https://github.com/2409965390-a11y/uav-task-decision](https://github.com/2409965390-a11y/uav-task-decision)
-
-本周提交号： 9899adc
-
-运行命令：
 python src/observation_simulator.py
 python src/state_estimator.py
+python src/evaluate_runs.py
+```
 
-主要输出文件：
-data/simulated_observations/week03_noisy_czl.csv
-data/simulated_observations/week03_estimated_czl.csv
-data/simulated_observations/week03_reliability_czl.csv
-figures/week03_observation_and_estimate_czl.png
-figures/week03_reliability_score_czl.png
+重跑会更新本包的对应CSV、图和报告。原实验报告及旧数据另外归档，不能用旧数值解释新轨迹。
 
-已知问题： 当前状态估计仅使用简单指数平滑，观测缺失时仅保持上一时刻估计；当前可靠性评分仍依赖仿真 Ground Truth，尚不能直接用于真实无人机系统。
+## 输入与目录
+
+- `configs/mission_bridge_czl.json`：地图大小、起点、终点、速度、安全距离与矩形障碍；
+- `configs/observation_noise.yaml`：噪声、缺失率、异常区间和随机种子；
+- `configs/decision_thresholds.yaml`：继续、减速、观测/悬停、返航阈值；
+- `configs/experiment_week04.yaml`：至少20个配对种子、时间步、最长执行步数及独立压力案例；
+- `src/`：任务读取、模拟器、观测、离线估计、在线估计、决策、评价与统一入口；
+- `tests/`：运动、碰撞、在线信息限制及实际动作的测试；
+- `data/simulated_observations/`：第2、3周数据；`data/results/`：实验指标与决策日志；
+- `figures/`：各阶段结果；`reports/`：基于本次实际运行的报告。
+
+`czl`为现有文件名后缀，对应导师任务卡中的“姓名”占位，不修改既有接口。
+
+## 坐标、单位与数据字段
+
+统一约定：二维笛卡尔坐标，原点在地图左下，X向右、Y向上；长度m，时间s，速度m/s。
+无人机是二维点模型。`safety_distance`按矩形向四周扩张，角部比欧氏距离更保守。
+每步只改变X或Y之一，转弯为90度；转角前可缩短一步，保留实际拐点，禁止斜线切角。
+
+第2周CSV字段：`time,x,y,vx,vy,target_id,task_progress`。
+第0行是真实起点；`vx/vy`是本行到下一行的位移除以dt；终点速度为0。
+`target_id=0`表示唯一最终目标。进度为已走规划路线长度比例，到最终目标时为1。
+
+第3周字段继续使用原格式：
+
+- 观测：`time,true_x,true_y,observed_x,observed_y,is_missing,is_outlier`；
+- 估计：`time,estimated_x,estimated_y,position_error,estimate_error`；
+- 可靠性：`time,reliability_score,missing_count,residual,is_low_reliability`。
+
+第3周可靠性是包含真值误差的离线验证分数，不能用作第4周的在线决策输入。
+第4周在线模块单独从当前观测、历史状态、已执行指令计算更新前残差与连续缺失，不读取真值或异常标签。
+
+第4周日志包含任务卡要求的`run_id,time,x,y,reliability_score,action,collision,task_completed`，
+同时保留策略、观测、估计、实际速度、残差和安全区域违反信息。
+在线评分与旧离线评分不混用。`OBSERVE`额外样本评分单列，决策分数保持为动作选择时的分数。
+
+## 参数修改与公平实验
+
+修改任务JSON后先重跑全部流程，确保第3周数据对应新任务。
+修改噪声或缺失率可重跑第3周；修改可靠性阈值可重跑第4周。
+第4周A/B使用同一地图、噪声配置、对应种子和按时间生成的干扰序列；20组随机实验与极端异常案例分别统计。
+命令真正改变模拟运动或停留时间；返航真正生成到起点的路线，没有仅输出REPLAN标签。
+
+## 输出与已知问题
+
+主要输出采用原`week02_*_czl`、`week03_*_czl`及新增`week04_*_czl`命名。
+完整文件对应关系和实际指标见`reports/week04_stage_report_czl.md`。
+
+模型不包含风扰、动态障碍、加速度和转弯半径。在线残差评分可能漏掉缓慢漂移。
+第3周指数平滑可能增加误差；第4周考虑可靠性的B也可能返航、超时或误判到达，不能保证更优。
+两种策略的失败和不利结果均保留。真实位置只供环境与评价使用。
+
+## 来源、版本与待办
+
+原模块来源：用户本人的uav-task-decision项目，原仓库HEAD为66eb9df20e36732e491c0995a23aa9d30b4949fe。
+该HEAD是改动前基线，不是本候选改动的提交号；当前候选用日期、版本和文件SHA256清单识别。
+Codex协助修改二维运动、补齐在线基线与评价入口、运行测试和整理报告；旧接口与文件名保留。
+本包包含`baseline_manifest.json`记录文件散列、来源与实际验证环境。
+
+最新第三次组会拟议共同版本还需：另外两位同学项目、接口对齐、三台电脑各自复现、本人说明、演示视频及教师审核。
+这些尚未完成。正式任务与截止时间以会后经教师审核的安排为准。
+钉钉材料由本人提交；尚未完成全组复现或教师验收。旧报告中的“未推送Git”为当时状态，以本次版本记录为准。
+
+
+## 本周提交与新增内容（2026-10-16）
+
+- Git仓库地址：https://github.com/2409965390-a11y/uav-task-decision
+- 本周提交号：以本版本Git提交记录为准；钉钉提交包的README记录完整提交号。
+- 运行命令：`python src/run_pipeline.py --stage all`。
+- 多地图演示：`python src/show_scenarios.py`；加`--no-gif`跳过动图生成。
+- 独立教学例子：`python examples/week04_learning_demo.py`，只依赖Python标准库。
+- 本次复核：原项目24项测试全部通过；不改写历史实验数值，结果仍来自已有实际运行记录。
+- 详细中文注释覆盖任务读取、二维规划、观测、离线/在线估计、决策、评价、入口及多地图演示。
+- 当前一页周报：`reports/week04_report_czl.md`；完整阶段报告：`reports/week04_stage_report_czl.md`。
+- ChatGPT使用记录：`reports/chatgpt_usage_2026-10-16.md`。
+
+主要输出：`data/results/week04_decision_log_czl.csv`、`week04_runs_czl.csv`、`week04_metrics_czl.csv`及案例日志；
+`figures/week04_strategy_comparison_czl.png`、`week04_success_case_czl.png`、`week04_failure_case_czl.png`；
+多地图输出位于`data/results/scenario_suite_2026-10-15/`与`figures/scenario_suite_2026-10-15/`。
+
+`baseline_manifest.json`是2026-10-14初始候选的历史清单，不是本次新增注释与多地图版本的完整校验清单。
+旧直线模拟器`src/simulator_2d_straight.py.py`与`figures/废案/`保留为历史参考，当前入口使用`src/simulator_2d.py`。
+
+本次仍为个人可运行版本。缺少另外两位同学的项目整合、三台电脑复现记录及本人1—3分钟运行视频。
+动图只播放理想轨迹，不能替代本人运行与讲解视频。不得将个人压缩包标注为已验收的全组共同基线。

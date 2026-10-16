@@ -1,0 +1,5 @@
+# 只用于在线决策；观测误差和Ground Truth不参与评分。
+continue_threshold: 0.75
+slow_down_threshold: 0.50
+hold_threshold: 0.30
+max_hold_steps: 10

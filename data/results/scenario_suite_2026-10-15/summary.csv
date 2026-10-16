@@ -1,0 +1,7 @@
+﻿scene,strategy,runs,success_rate,collisions,path_length,execution_time,hold_time,return_count,safety_violation_steps
+basic_single,A,20,0.0,0,112.905530724198,114.7,0.0,0,0
+basic_single,B,20,0.2,0,84.61296266807355,145.9,42.45,3,0
+narrow_four,A,20,0.7,0,42.19520162485291,44.15,0.0,0,234
+narrow_four,B,20,0.2,1,40.64707103742067,79.6,27.35,2,590
+staggered_four,A,20,0.0,20,45.03248813776678,50.25,0.0,0,351
+staggered_four,B,20,0.3,3,53.931471223680134,103.1,31.8,4,541

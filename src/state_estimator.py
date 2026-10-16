@@ -1,3 +1,7 @@
+# 第3周核心②：已保存观测表 → 指数平滑估计 → 离线误差与可靠性评分 → RMSE和图片。
+# 本文件的position_error与可靠性评分会使用仿真真值，只供离线分析，不驱动第4周在线决策。
+# 第4周在线估计另见online_state；不要把本文件的离线评分CSV直接当作真实飞行可获得的输入。
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -52,6 +56,7 @@ RELIABILITY_FIGURE_PATH = (
 # 状态估计
 # =========================================================
 
+# 输入data是第3周观测表；输出是在副本上增加估计坐标和误差列后的新表，保留原始观测。
 def estimate_state(data, alpha=0.8):
     """
     使用指数平滑估计无人机位置。
@@ -64,12 +69,15 @@ def estimate_state(data, alpha=0.8):
     但容易产生明显滞后。
     """
 
+    # 两个空列表用于按时间收集估计坐标；循环结束后一次性写成DataFrame的两列。
     estimated_x = []
     estimated_y = []
 
+    # None表示还没有上一步估计，不能用数值0代替，否则会把起点错误地拉向原点。
     previous_x = None
     previous_y = None
 
+    # iterrows按表顺序逐行读取。_接收但不使用行索引，row可通过列名获取本时刻数值。
     for _, row in data.iterrows():
 
         observed_x = row["observed_x"]
@@ -78,12 +86,14 @@ def estimate_state(data, alpha=0.8):
         # -------------------------------------------------
         # 当前观测缺失
         # -------------------------------------------------
+        # 任一坐标缺失，都按本时刻没有有效二维观测处理；不能把NaN当成位置0。
         if pd.isna(observed_x) or pd.isna(observed_y):
 
             # 如果之前已经有估计值
             # 当前时刻暂时保持上一时刻的位置估计
             if previous_x is not None:
 
+                # 旧离线方法在缺失时保持上一估计；真实无人机可能仍在移动，所以估计会落后，这是已知局限。
                 current_x = previous_x
                 current_y = previous_y
 
@@ -91,6 +101,7 @@ def estimate_state(data, alpha=0.8):
             # 当前仿真中暂时使用真实起点初始化
             else:
 
+                # 首条缺失的特殊初始化读取仿真真值。它只属于离线基线；在线模块改用任务已知起点初始化。
                 current_x = row["true_x"]
                 current_y = row["true_y"]
 
@@ -108,6 +119,8 @@ def estimate_state(data, alpha=0.8):
             else:
 
                 # 指数平滑
+                # 下面X/Y各做一次指数平滑：当前估计=alpha*当前观测+(1-alpha)*上一估计。
+                # alpha=0.8时主要跟随观测；更小的alpha可更平滑，但运动时更容易滞后。
                 current_x = (
                     alpha * observed_x
                     + (1 - alpha) * previous_x
@@ -119,10 +132,12 @@ def estimate_state(data, alpha=0.8):
                 )
 
         # 保存当前估计值
+        # append把当前估计加到列表末尾，保持与输入时间顺序一致；不修改真实轨迹。
         estimated_x.append(current_x)
         estimated_y.append(current_y)
 
         # 当前估计变成下一时刻的 previous
+        # 把本时刻估计留到下一轮使用。循环变量会变化，这两个previous变量专门保存历史状态。
         previous_x = current_x
         previous_y = current_y
 
@@ -138,6 +153,7 @@ def estimate_state(data, alpha=0.8):
     #
     # Observation 与 Ground Truth 之间的距离
     # -------------------------------------------------
+    # 二维观测误差：sqrt((观测X-真值X)²+(观测Y-真值Y)²)，单位米。观测缺失时结果为NaN。
     result["position_error"] = np.sqrt(
         (result["observed_x"] - result["true_x"]) ** 2
         + (result["observed_y"] - result["true_y"]) ** 2
@@ -148,6 +164,7 @@ def estimate_state(data, alpha=0.8):
     #
     # Estimate 与 Ground Truth 之间的距离
     # -------------------------------------------------
+    # 二维估计误差与真值比较，包含观测缺失时刻；它和仅有效观测上的误差统计样本集合不同。
     result["estimate_error"] = np.sqrt(
         (result["estimated_x"] - result["true_x"]) ** 2
         + (result["estimated_y"] - result["true_y"]) ** 2
@@ -160,6 +177,8 @@ def estimate_state(data, alpha=0.8):
 # 可靠性评分
 # =========================================================
 
+# 输入必须已经经过estimate_state，因为本函数要读取estimated_x/y和position_error。
+# 采用人为扣分规则，结果只是离线分析分数，不是经过统计校准的概率，也不会自动使无人机停止。
 def calculate_reliability(data):
     """
     根据以下信息计算简单可靠性分数：
@@ -178,15 +197,18 @@ def calculate_reliability(data):
 
     reliability_scores = []
     missing_counts = []
+    # 分别保存每步评分、连续缺失长度和观测估计残差，最后组成与原时间轴对齐的表。
     residuals = []
 
     # 连续缺失次数
+    # 有效观测到来会重置连续缺失计数，缺失分支则继续加1；初始时尚未缺失。
     consecutive_missing = 0
 
     # 上一个有效观测
     previous_observed_x = None
     previous_observed_y = None
 
+    # iterrows按表顺序逐行读取。_接收但不使用行索引，row可通过列名获取本时刻数值。
     for _, row in data.iterrows():
 
         observed_x = row["observed_x"]
@@ -196,12 +218,14 @@ def calculate_reliability(data):
         estimated_y = row["estimated_y"]
 
         # 默认完全可靠
+        # 每个有效观测从满分重新扣分，不是把上一步扣完的分数继续往下累减。
         score = 1.0
 
         # =================================================
         # 1. 当前观测缺失
         # =================================================
 
+        # 任一坐标缺失，都按本时刻没有有效二维观测处理；不能把NaN当成位置0。
         if pd.isna(observed_x) or pd.isna(observed_y):
 
             consecutive_missing += 1
@@ -235,12 +259,14 @@ def calculate_reliability(data):
         else:
 
             # 当前没有连续缺失
+            # 有效观测到来会重置连续缺失计数，缺失分支则继续加1；初始时尚未缺失。
             consecutive_missing = 0
 
             # -------------------------------------------------
             # 计算观测与估计之间的残差
             # -------------------------------------------------
 
+            # 此处比较观测与已经平滑后的估计，和第4周'更新前预测残差'不同；高alpha会让这个残差偏小。
             residual = np.sqrt(
                 (observed_x - estimated_x) ** 2
                 + (observed_y - estimated_y) ** 2
@@ -253,6 +279,7 @@ def calculate_reliability(data):
             # 根据 Ground Truth 计算完成
             # -------------------------------------------------
 
+            # 这里明确读取基于真值的观测误差，是本评分仅能用于离线仿真验证的原因。
             observation_error = row["position_error"]
 
             # -------------------------------------------------
@@ -274,6 +301,7 @@ def calculate_reliability(data):
             # 4. 残差过大时额外扣分
             # -------------------------------------------------
 
+            # 观测与平滑估计差距超过1米才额外扣分；下面用min限制这项扣分不超过0.15。
             if residual > 1.0:
 
                 score -= min(
@@ -297,6 +325,7 @@ def calculate_reliability(data):
 
                 # 如果两个连续观测之间距离突然超过 2
                 # 进一步降低可靠性
+                # 相邻有效观测跳动超过2米再扣0.20。这是当前固定阈值，采样间隔或速度改变时可能需要重新评估。
                 if jump > 2.0:
 
                     score -= 0.20
@@ -323,6 +352,7 @@ def calculate_reliability(data):
     # 生成可靠性数据表
     # =====================================================
 
+    # 输出一行对应一个输入时刻，包括评分、连续缺失次数、残差和低可靠标记；它不包含飞行动作。
     reliability = pd.DataFrame({
         "time": data["time"],
         "reliability_score": reliability_scores,
@@ -342,6 +372,7 @@ def calculate_reliability(data):
 # RMSE
 # =========================================================
 
+# RMSE=sqrt(误差平方的平均值)。输入已经是二维位置误差的长度，输出仍以米为单位。
 def calculate_rmse(error_series):
     """
     根据误差序列计算 RMSE。
@@ -350,6 +381,7 @@ def calculate_rmse(error_series):
     """
 
     # 去掉 NaN
+    # 去掉无法评价的观测误差。缺失率变化会改变被统计的观测集合，所以观测RMSE偶尔下降并不代表传感器更准。
     valid_errors = error_series.dropna()
 
     return np.sqrt(
@@ -361,6 +393,7 @@ def calculate_rmse(error_series):
 # 绘制轨迹对比图
 # =========================================================
 
+# 折线绘制的Ground Truth、散点Observation、估计线Estimate来自同一数据表；图形平滑不等于RMSE更小。
 def plot_trajectory(data):
     """
     绘制：
@@ -394,8 +427,8 @@ def plot_trajectory(data):
         label="Estimate"
     )
 
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
+    ax.set_xlabel("X (m)")
+    ax.set_ylabel("Y (m)")
 
     ax.set_title(
         "Week 03 Observation and Estimate"
@@ -429,6 +462,7 @@ def plot_trajectory(data):
 # 绘制可靠性图
 # =========================================================
 
+# 横轴是时间，纵轴是分数；0.5虚线和低分散点用来解释异常与缺失影响，不执行控制动作。
 def plot_reliability(reliability):
     """
     绘制可靠性分数。
@@ -459,6 +493,7 @@ def plot_reliability(reliability):
     # 找出所有低可靠观测
     # -------------------------------------------------
 
+    # 布尔筛选只取被标记低可靠的行，便于在整条评分曲线上额外画出这些散点。
     low_reliability = reliability[
         reliability["is_low_reliability"]
     ]
@@ -476,7 +511,7 @@ def plot_reliability(reliability):
         1.05
     )
 
-    ax.set_xlabel("Time")
+    ax.set_xlabel("Time (s)")
     ax.set_ylabel("Reliability Score")
 
     ax.set_title(
@@ -506,6 +541,7 @@ def plot_reliability(reliability):
 # 主程序
 # =========================================================
 
+# 直接运行的完整顺序是：读观测→估计→离线评分→算两种RMSE→保存两张表→画图。
 if __name__ == "__main__":
 
     # -------------------------------------------------
@@ -558,6 +594,7 @@ if __name__ == "__main__":
     # 6. 整理需要保存的估计数据
     # -------------------------------------------------
 
+    # 只保存任务卡要求的估计与误差列；用于画图的estimated_data仍保留观测和真值，不会在这里丢失。
     estimated_output = estimated_data[
         [
             "time",

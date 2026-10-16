@@ -1,0 +1,9 @@
+﻿run_id,strategy,time,x,y,observed_x,observed_y,estimated_x,estimated_y,reliability_score,missing_count,residual,observation_accepted,action,collision,task_completed,vx,vy,safety_violation,scenario
+1,A,0.0,6.0,6.0,6.0,6.0,6.0,6.0,1.0,0,0.0,True,CONTINUE,False,False,0.0,1.0,False,persistent_bias
+1,A,1.0,6.0,7.0,6.0,7.0,6.0,7.0,1.0,0,0.0,True,CONTINUE,False,False,0.0,1.0,False,persistent_bias
+1,A,2.0,6.0,8.0,6.0,8.0,6.0,8.0,1.0,0,0.0,True,CONTINUE,False,False,0.0,1.0,False,persistent_bias
+1,A,3.0,6.0,9.0,6.0,9.0,6.0,9.0,1.0,0,0.0,True,CONTINUE,False,False,0.0,1.0,False,persistent_bias
+1,A,4.0,6.0,10.0,6.0,10.0,6.0,10.0,1.0,0,0.0,True,CONTINUE,False,False,0.0,1.0,False,persistent_bias
+1,A,5.0,6.0,11.0,6.0,81.0,6.0,67.0,0.0,0,70.0,True,CONTINUE,False,False,1.0,0.0,True,persistent_bias
+1,A,6.0,7.0,11.0,7.0,81.0,7.0,78.2,5.709040105864101e-171,0,14.0,True,CONTINUE,False,False,1.0,0.0,True,persistent_bias
+1,A,7.0,8.0,11.0,,,7.0,78.2,5.709040105864101e-171,0,14.0,True,END,True,False,0.0,0.0,True,persistent_bias

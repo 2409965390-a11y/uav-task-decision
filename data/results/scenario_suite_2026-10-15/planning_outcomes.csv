@@ -1,0 +1,5 @@
+﻿scene,plannable,obstacle_count,sample_count,path_length,turn_count,failure_reason
+basic_single,True,1,111.0,110.0,1.0,
+staggered_four,True,4,68.0,64.000024,8.0,
+narrow_four,True,4,44.0,42.0,2.0,
+narrow_blocked,False,4,,,,未找到安全绕行路线，请检查障碍物、安全距离及起终点配置

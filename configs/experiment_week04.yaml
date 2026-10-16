@@ -1,0 +1,24 @@
+mission_path: configs/mission_bridge_czl.json
+noise_path: configs/observation_noise.yaml
+thresholds_path: configs/decision_thresholds.yaml
+runs: 20
+seed_start: 100
+dt: 1.0
+max_steps: 500
+alpha: 0.8
+slow_speed_ratio: 0.5
+goal_tolerance: 0.5
+# 与20次随机实验分开报告的可复现干扰案例；A/B共享同一条件。
+cases:
+  transient_bias:
+    position_noise_std: 0.0
+    missing_rate: 0.0
+    outlier_start: 5
+    outlier_length: 4
+    outlier_offset: [0.0, 70.0]
+  persistent_bias:
+    position_noise_std: 0.0
+    missing_rate: 0.0
+    outlier_start: 5
+    outlier_length: 200
+    outlier_offset: [0.0, 70.0]
